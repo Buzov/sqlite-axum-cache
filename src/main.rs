@@ -11,6 +11,8 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
+use dotenvy::dotenv;
+use std::env;
 
 #[derive(Clone)]
 struct AppState {
@@ -19,9 +21,12 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    dotenv().ok();
 
-    // Default port 3000
-    let addr = "127.0.0.1:3000";
+    // Read port from environment or default to 3000
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    // Bind to the configured port
+    let addr = format!("127.0.0.1:{}", port);
 
     let db_pool = SqlitePoolOptions::new()
         .connect("sqlite::memory:")
@@ -36,15 +41,23 @@ async fn main() -> anyhow::Result<()> {
         db: Arc::new(db_pool),
     };
 
-    let app = Router::new()
+    let swagger_enabled = env::var("ENABLE_SWAGGER").unwrap_or_else(|_| "true".to_string()) == "true";
+
+    let mut app = Router::new()
         .route("/cache/{key}", get(get_cache))
         .route("/cache", post(set_cache))
         .layer(tower_http::cors::CorsLayer::permissive())
-        .merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(state);
 
+    if swagger_enabled {
+        app = app.merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", ApiDoc::openapi()));
+        println!("✅ Swagger UI enabled at http://{}/swagger", addr);
+    } else {
+        println!("🚀 Running in production mode (Swagger disabled)");
+    }
+
     let listener = TcpListener::bind(&addr).await?;
-    println!("🚀 Listening on {}", addr);
+    println!("🚀 Listening on http://{}", addr);
 
     axum::serve(listener, app).await?;
 
