@@ -17,3 +17,7 @@ curl -X POST http://localhost:3000/cache -H "Content-Type: application/json" -d 
 ```bash
 curl -X GET http://localhost:3000/cache/username
 ```
+
+```
+http://127.0.0.1:3000/swagger
+```
