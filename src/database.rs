@@ -1,6 +1,8 @@
 use std::sync::Arc;
+use std::time::Duration;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
-
+use tokio::time::interval;
+use chrono::{Utc, Duration as ChronoDuration};
 pub type DbPool = Pool<Sqlite>;
 
 #[derive(Clone)]
@@ -18,14 +20,37 @@ pub async fn init_db() -> Result<DbPool, sqlx::Error> {
         .await?;
 
     // Initialize schema
-    sqlx::query(r#"
+    sqlx::query(
+        r#"
          CREATE TABLE cache (
              key TEXT PRIMARY KEY,
-             value TEXT NOT NULL
-         );"#
+             value TEXT NOT NULL,
+             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+         );
+         "#
     )
         .execute(&db_pool)
         .await?;
 
     Ok(db_pool)
+}
+
+async fn delete_old_transactions(db_pool: DbPool) {
+    let mut interval = interval(Duration::from_secs(3600)); // Run every hour
+
+    loop {
+        interval.tick().await;
+
+        let cutoff_time = Utc::now() - ChronoDuration::days(7);
+        let cutoff_time_str = cutoff_time.format("%Y-%m-%d %H:%M:%S").to_string();
+
+        match sqlx::query("DELETE FROM cache WHERE created_at < ?")
+            .bind(cutoff_time_str)
+            .execute(&db_pool)
+            .await
+        {
+            Ok(result) => println!("Deleted {} old transactions", result.rows_affected()),
+            Err(e) => println!("Error deleting old transactions: {}", e),
+        }
+    }
 }
