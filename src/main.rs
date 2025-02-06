@@ -10,10 +10,11 @@ use dotenvy::dotenv;
 use std::env;
 use database::{AppState, init_db};
 use crate::database::delete_old_records;
-
+use time::TimeUnit;
 mod entity;
 mod handlers;
 mod database;
+mod time;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -28,8 +29,20 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to initialize the database");
 
+    let interval_value: u64 = env::var("INTERVAL_VALUE")
+        .unwrap_or_else(|_| "5".to_string()) // Default: 5
+        .parse()
+        .expect("INTERVAL_VALUE must be a number");
+    println!("interval_value: {}", interval_value);
+
+    let time_unit: TimeUnit = env::var("TIME_UNIT")
+        .unwrap_or_else(|_| "Minutes".to_string()) // Default: minutes
+        .parse()
+        .expect("Invalid TIME_UNIT. Use 'Seconds', 'Minutes', or 'Hours'.");
+    println!("time_unit: {}", time_unit);
+
     // Spawn background task for deleting old records
-    tokio::spawn(delete_old_records(db_pool.clone()));
+    tokio::spawn(delete_old_records(db_pool.clone(), interval_value, time_unit));
 
     let state = AppState {
         db: Arc::new(db_pool),

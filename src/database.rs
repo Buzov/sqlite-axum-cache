@@ -1,8 +1,10 @@
 use std::sync::Arc;
-use std::time::Duration;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use tokio::time::interval;
-use chrono::{Utc, Duration as ChronoDuration};
+use chrono::{Utc};
+use time::TimeUnit;
+use crate::time;
+
 pub type DbPool = Pool<Sqlite>;
 
 #[derive(Clone)]
@@ -35,13 +37,13 @@ pub async fn init_db() -> Result<DbPool, sqlx::Error> {
     Ok(db_pool)
 }
 
-pub async fn delete_old_records(db_pool: DbPool) {
-    let mut interval = interval(Duration::from_secs(10));
+pub async fn delete_old_records(db_pool: DbPool, interval_value: u64, unit: TimeUnit) {
+    let mut interval = interval(unit.to_tokio_duration(interval_value));
 
     loop {
         interval.tick().await;
 
-        let cutoff_time = Utc::now() - ChronoDuration::minutes(1);
+        let cutoff_time = Utc::now() - unit.to_duration(interval_value);
         let cutoff_time_str = cutoff_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
         match sqlx::query("DELETE FROM cache WHERE created_at < ?")
