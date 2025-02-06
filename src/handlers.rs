@@ -4,8 +4,8 @@ use axum::Json;
 use utoipa::OpenApi;
 use crate::AppState;
 
-use crate::entity::CacheEntry;
-
+use crate::entity::{SaveCacheEntryRequest, CacheEntry};
+use chrono::{Utc};
 /// Fetch a cached value by key
 #[utoipa::path(
     get,
@@ -17,14 +17,16 @@ use crate::entity::CacheEntry;
     )
 )]
 pub async fn get_cache(State(state): State<AppState>, Path(key): Path<String>) -> Result<Json<CacheEntry>, StatusCode> {
-    let row: Option<(String,)> = sqlx::query_as("SELECT value FROM cache WHERE key = ?")
-        .bind(&key)
+    let row = sqlx::query_as::<_, CacheEntry>(
+        "SELECT key, value, created_at FROM cache WHERE key = ?"
+    )
+        .bind(key)
         .fetch_optional(&*state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     match row {
-        Some((value,)) => Ok(Json(CacheEntry { key, value })),
+        Some(cache_entry) => Ok(Json(cache_entry)),
         None => Err(StatusCode::NOT_FOUND),
     }
 }
@@ -33,16 +35,26 @@ pub async fn get_cache(State(state): State<AppState>, Path(key): Path<String>) -
 #[utoipa::path(
     post,
     path = "/cache",
-    request_body = CacheEntry,
+    request_body = SaveCacheEntryRequest,
     responses(
         (status = 200, description = "Cache stored successfully"),
         (status = 500, description = "Error storing cache")
     )
 )]
-pub async fn set_cache(State(state): State<AppState>, Json(entry): Json<CacheEntry>) -> Result<StatusCode, StatusCode> {
-    sqlx::query("INSERT INTO cache (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value;")
+pub async fn set_cache(State(state): State<AppState>, Json(entry): Json<SaveCacheEntryRequest>) -> Result<StatusCode, StatusCode> {
+    let created_at: String = Utc::now().naive_utc().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    sqlx::query(
+        r#"
+         INSERT INTO cache (key, value, created_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(key)
+         DO UPDATE SET value = excluded.value;
+         "#
+    )
         .bind(&entry.key)
         .bind(&entry.value)
+        .bind(created_at)
         .execute(&*state.db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
