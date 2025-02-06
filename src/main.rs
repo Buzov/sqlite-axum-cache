@@ -9,6 +9,8 @@ use utoipa_swagger_ui::SwaggerUi;
 use dotenvy::dotenv;
 use std::env;
 use database::{AppState, init_db};
+use crate::database::delete_old_records;
+
 mod entity;
 mod handlers;
 mod database;
@@ -26,11 +28,12 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to initialize the database");
 
+    // Spawn background task for deleting old records
+    tokio::spawn(delete_old_records(db_pool.clone()));
+
     let state = AppState {
         db: Arc::new(db_pool),
     };
-
-    let swagger_enabled = env::var("ENABLE_SWAGGER").unwrap_or_else(|_| "true".to_string()) == "true";
 
     let mut app = Router::new()
         .route("/cache/{key}", get(handlers::get_cache))
@@ -38,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(tower_http::cors::CorsLayer::permissive())
         .with_state(state);
 
+    let swagger_enabled = env::var("ENABLE_SWAGGER").unwrap_or_else(|_| "true".to_string()) == "true";
     if swagger_enabled {
         app = app.merge(SwaggerUi::new("/swagger").url("/api-docs/openapi.json", handlers::ApiDoc::openapi()));
         println!("✅ Swagger UI enabled at http://{}/swagger", addr);

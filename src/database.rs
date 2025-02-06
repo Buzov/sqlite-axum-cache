@@ -35,13 +35,13 @@ pub async fn init_db() -> Result<DbPool, sqlx::Error> {
     Ok(db_pool)
 }
 
-async fn delete_old_transactions(db_pool: DbPool) {
-    let mut interval = interval(Duration::from_secs(3600)); // Run every hour
+pub async fn delete_old_records(db_pool: DbPool) {
+    let mut interval = interval(Duration::from_secs(10));
 
     loop {
         interval.tick().await;
 
-        let cutoff_time = Utc::now() - ChronoDuration::days(7);
+        let cutoff_time = Utc::now() - ChronoDuration::minutes(1);
         let cutoff_time_str = cutoff_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
         match sqlx::query("DELETE FROM cache WHERE created_at < ?")
