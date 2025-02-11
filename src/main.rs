@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use dotenvy::dotenv;
 use std::env;
@@ -26,11 +25,7 @@ async fn main() -> anyhow::Result<()> {
 
     init_schedule_task(db_pool.clone());
 
-    let state = AppState {
-        db: Arc::new(db_pool),
-    };
-
-    let app = create_app(state, &addr);
+    let app = create_app(db_pool, &addr);
 
     let listener = TcpListener::bind(&addr).await?;
     println!("🚀 Listening on http://{}", &addr);

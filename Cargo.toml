@@ -15,5 +15,8 @@ utoipa = { version = "5.3.1", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9.0.0", features = ["axum"] }
 dotenvy = "0.15.7"
 chrono = "0.4.39"
-strum = "0.26"
-strum_macros = "0.26"
+strum = "0.27.0"
+strum_macros = "0.27.0"
+hyper = "1.6.0"
+tower = "0.5.2"
+http-body-util = "0.1.2"
