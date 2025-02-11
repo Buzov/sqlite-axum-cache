@@ -29,18 +29,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to initialize the database");
 
-    let interval_value: u64 = env::var("INTERVAL_VALUE")
-        .unwrap_or_else(|_| "5".to_string()) // Default: 5
-        .parse()
-        .expect("INTERVAL_VALUE must be a number");
-    println!("interval_value: {}", interval_value);
-
-    let time_unit: TimeUnit = env::var("TIME_UNIT")
-        .unwrap_or_else(|_| "Minutes".to_string()) // Default: minutes
-        .parse()
-        .expect("Invalid TIME_UNIT. Use 'Seconds', 'Minutes', or 'Hours'.");
-    println!("time_unit: {}", time_unit);
-
+    // Destructure tuple into separate variables
+    let (interval_value, time_unit) = get_schedule_setting();
     // Spawn background task for deleting old records
     tokio::spawn(delete_old_records(db_pool.clone(), interval_value, time_unit));
 
@@ -68,4 +58,19 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+fn get_schedule_setting() -> (u64, TimeUnit) {
+    let interval_value: u64 = env::var("INTERVAL_VALUE")
+        .unwrap_or_else(|_| "5".to_string()) // Default: 5
+        .parse()
+        .expect("INTERVAL_VALUE must be a number");
+    println!("interval_value: {}", interval_value);
+
+    let time_unit: TimeUnit = env::var("TIME_UNIT")
+        .unwrap_or_else(|_| "Minutes".to_string()) // Default: minutes
+        .parse()
+        .expect("Invalid TIME_UNIT. Use 'Seconds', 'Minutes', or 'Hours'.");
+    println!("time_unit: {}", time_unit);
+    (interval_value, time_unit)
 }
