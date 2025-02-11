@@ -8,6 +8,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode}
 };
+use chrono::Utc;
 use tower::ServiceExt;
 use http_body_util::{BodyExt}; // Import for `.collect()`
 use hyper::Response;
@@ -78,7 +79,7 @@ async fn test_create_cache_entry() {
     assert_eq!(response.status(), StatusCode::OK);
 
     // Fetch value
-    let response: Response<Body> = app.clone()
+    let response: Response<Body> = app
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -94,4 +95,100 @@ async fn test_create_cache_entry() {
     assert!(body_str.contains("\"value\":\"new_value\""));
 }
 
+#[tokio::test]
+async fn test_update_cache_entry() {
+    let db_pool = init_db()
+        .await
+        .expect("Failed to initialize the database");
+
+    // Insert test data
+    let created_at = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    sqlx::query("INSERT INTO cache (key, value, created_at) VALUES (?, ?, ?)")
+        .bind("test_key")
+        .bind("old_value")
+        .bind(created_at)
+        .execute(&db_pool)
+        .await
+        .expect("Failed to insert test data");
+
+    let addr = "test_host".to_string();
+    let app = create_app(db_pool, &addr);
+
+    let request_body = r#"{
+            "key": "test_key",
+            "value": "new_value"
+        }"#;
+
+    let response: Response<Body> = app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/cache")
+                .header("Content-Type", "application/json")
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Fetch updated value
+    let response: Response<Body> = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/cache/test_key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body_str = String::from_utf8(body_bytes.to_vec()).unwrap();
+    assert!(body_str.contains("\"value\":\"new_value\""));
+}
+
+#[tokio::test]
+async fn test_get_missing_cache_entry() {
+    let app = setup_app().await;
+
+    let response: Response<Body> = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/cache/non_existent_key")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_save_cache_entry() {
+    let app = setup_app().await;
+
+    let request_body = r#"{
+            "key": "test_key",
+            "value": "test_value"
+        }"#;
+
+    let response: Response<Body> = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/cache")
+                .header("Content-Type", "application/json")
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
 
