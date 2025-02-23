@@ -10,6 +10,11 @@ cargo build
 cargo build --release
 ```
 
+# Run tests
+```bash
+cargo test
+```
+
 ```bash
 curl -X POST http://localhost:3000/cache -H "Content-Type: application/json" -d '{"key": "username", "value": "rustacean"}'
 ```

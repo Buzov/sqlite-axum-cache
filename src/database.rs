@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use tokio::time::interval;
 use chrono::{Utc};
@@ -6,11 +5,6 @@ use time::TimeUnit;
 use crate::time;
 
 pub type DbPool = Pool<Sqlite>;
-
-#[derive(Clone)]
-pub struct AppState {
-    pub db: Arc<DbPool>,
-}
 
 pub async fn init_db() -> Result<DbPool, sqlx::Error> {
     let db_url = "sqlite::memory:"; // Change to a file path for on-disk storage
@@ -51,8 +45,8 @@ pub async fn delete_old_records(db_pool: DbPool, interval_value: u64, unit: Time
             .execute(&db_pool)
             .await
         {
-            Ok(result) => println!("Deleted {} old transactions", result.rows_affected()),
-            Err(e) => println!("Error deleting old transactions: {}", e),
+            Ok(result) => println!("Deleted {} old records", result.rows_affected()),
+            Err(e) => println!("Error deleting old records: {}", e),
         }
     }
 }
