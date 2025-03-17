@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  sqlite-axum-cache:
+    image: sqlite-axum-cache:0.0.1
+    container_name: sqlite-axum-cache
+    ports:
+      - "3000:3000"
+    environment:
+      - ENABLE_SWAGGER=true # Disable Swagger in production
+      - INTERVAL_VALUE=1
+      - TIME_UNIT=Minutes
+#    restart: always
+#    command: sh -c "cd /app/ && sh -c ./sqlite-axum-cache"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 256m
