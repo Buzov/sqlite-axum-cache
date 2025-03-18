@@ -17,7 +17,6 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/sqlite-axum-cache .
 #COPY --from=builder /app/.env .env
-RUN chmod +x /app/sqlite-axum-cache
 EXPOSE 3000
 
 ENTRYPOINT ["/app/sqlite-axum-cache"]
