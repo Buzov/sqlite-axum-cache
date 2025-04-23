@@ -8,7 +8,7 @@ use time::TimeUnit;
 use crate::application::create_app;
 use tracing_appender::rolling;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing::{Level};
+use tracing::{info, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 mod entity;
 mod handlers;
@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let app = create_app(db_pool, &addr);
 
     let listener = TcpListener::bind(&addr).await?;
-    println!("🚀 Listening on http://{}", &addr);
+    info!("🚀 Listening on http://{}", &addr);
 
     axum::serve(listener, app).await?;
 
@@ -42,11 +42,27 @@ async fn main() -> anyhow::Result<()> {
 
 fn setup_logging() {
     let debug_level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+
+    // File appender: daily logs to ./logs/app.log
+    let file_appender = rolling::daily("./logs", "app.log")
+        .with_max_level(Level::INFO);
+
+    // Logging layer for file
+    let file_layer = fmt::layer()
+        .with_writer(file_appender)
+        .with_ansi(false) // optional: disables ANSI colors in log file
+        .with_level(true);
+
+    // Logging layer for stdout
+    let console_layer = fmt::layer()
+        .with_ansi(true)
+        .with_level(true); // shows the log level (INFO, DEBUG, etc.)
+
     // Set up tracing
-    let file_appender = rolling::daily("./logs", "app.log").with_max_level(Level::INFO);
     tracing_subscriber::registry()
-        .with(fmt::layer().with_writer(file_appender))
-        .with(EnvFilter::new(debug_level))// Adjust log levels: trace, debug, info, warn, error
+        .with(EnvFilter::new(debug_level)) // enables filtering by RUST_LOG
+        .with(file_layer)
+        .with(console_layer)
         .init();
 }
 
@@ -70,12 +86,12 @@ fn get_schedule_setting() -> (u64, TimeUnit) {
         .unwrap_or_else(|_| "5".to_string()) // Default: 5
         .parse()
         .expect("INTERVAL_VALUE must be a number");
-    println!("interval_value: {}", interval_value);
+    info!("interval_value: {}", interval_value);
 
     let time_unit: TimeUnit = env::var("TIME_UNIT")
         .unwrap_or_else(|_| "Minutes".to_string()) // Default: minutes
         .parse()
         .expect("Invalid TIME_UNIT. Use 'Seconds', 'Minutes', or 'Hours'.");
-    println!("time_unit: {}", time_unit);
+    info!("time_unit: {}", time_unit);
     (interval_value, time_unit)
 }
