@@ -3,7 +3,7 @@ use tokio::time::interval;
 use chrono::{Utc};
 use time::TimeUnit;
 use crate::time;
-
+use tracing::{debug};
 pub type DbPool = Pool<Sqlite>;
 
 pub async fn init_db() -> Result<DbPool, sqlx::Error> {
@@ -45,8 +45,8 @@ pub async fn delete_old_records(db_pool: DbPool, interval_value: u64, unit: Time
             .execute(&db_pool)
             .await
         {
-            Ok(result) => println!("Deleted {} old records", result.rows_affected()),
-            Err(e) => println!("Error deleting old records: {}", e),
+            Ok(result) => debug!("Deleted {} old records", result.rows_affected()),
+            Err(e) => debug!("Error deleting old records: {}", e),
         }
     }
 }

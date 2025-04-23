@@ -3,19 +3,24 @@ use dotenvy::dotenv;
 use std::env;
 use application::AppState;
 use database::init_db;
-use crate::database::{delete_old_records, DbPool};
 use time::TimeUnit;
+use tracing::{info};
 use crate::application::create_app;
+use crate::database::{delete_old_records, DbPool};
+use crate::logging::setup_logging;
 
 mod entity;
 mod handlers;
 mod database;
 mod time;
 mod application;
+mod logging;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
+    // Set up tracing
+    setup_logging();
 
     let db_pool = init_db()
         .await
@@ -28,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let app = create_app(db_pool, &addr);
 
     let listener = TcpListener::bind(&addr).await?;
-    println!("🚀 Listening on http://{}", &addr);
+    info!("🚀 Listening on http://{}", &addr);
 
     axum::serve(listener, app).await?;
 
@@ -55,12 +60,12 @@ fn get_schedule_setting() -> (u64, TimeUnit) {
         .unwrap_or_else(|_| "5".to_string()) // Default: 5
         .parse()
         .expect("INTERVAL_VALUE must be a number");
-    println!("interval_value: {}", interval_value);
+    info!("interval_value: {}", interval_value);
 
     let time_unit: TimeUnit = env::var("TIME_UNIT")
         .unwrap_or_else(|_| "Minutes".to_string()) // Default: minutes
         .parse()
         .expect("Invalid TIME_UNIT. Use 'Seconds', 'Minutes', or 'Hours'.");
-    println!("time_unit: {}", time_unit);
+    info!("time_unit: {}", time_unit);
     (interval_value, time_unit)
 }
