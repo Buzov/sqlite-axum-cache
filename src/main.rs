@@ -6,7 +6,10 @@ use database::init_db;
 use crate::database::{delete_old_records, DbPool};
 use time::TimeUnit;
 use crate::application::create_app;
-
+use tracing_appender::rolling;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing::{Level};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 mod entity;
 mod handlers;
 mod database;
@@ -16,6 +19,8 @@ mod application;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
+    // Set up tracing
+    setup_logging();
 
     let db_pool = init_db()
         .await
@@ -33,6 +38,16 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+fn setup_logging() {
+    let debug_level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+    // Set up tracing
+    let file_appender = rolling::daily("./logs", "app.log").with_max_level(Level::INFO);
+    tracing_subscriber::registry()
+        .with(fmt::layer().with_writer(file_appender))
+        .with(EnvFilter::new(debug_level))// Adjust log levels: trace, debug, info, warn, error
+        .init();
 }
 
 fn init_schedule_task(db_pool: DbPool) {
